@@ -82,36 +82,58 @@ pipeline {
         }
         stage ("Deploy to Container") {
             steps {
-                sh 'docker run -d --name zomato -p 3000:3000 imrans297/zomato:latest'
+                // Ensure the container is removed (even if it's stopped or running)
+            sh '''
+                # Check if a container with the name 'zomato' exists and is running or stopped
+                existing_container=$(docker ps -aq -f name=zomato)
+                
+                if [ "$existing_container" ]; then
+                    echo "Stopping and removing existing container..."
+                    docker stop zomato || true
+                    docker rm zomato || true
+                fi
+                
+                # Start the new container
+                echo "Starting new container..."
+                docker run -d --name zomato -p 3000:3000 imrans297/zomato:latest
+            '''
             }
         }
     }
-    post {
-    always {
-        script {
-            if (fileExists('trivy.txt')) {
-                emailext attachLog: true,
-                    subject: "'${currentBuild.result}'",
-                    body: """
-                        <html>
-                        <body>
-                            <div style="background-color: #FFA07A; padding: 10px; margin-bottom: 10px;">
-                                <p style="color: white; font-weight: bold;">Project: ${env.JOB_NAME}</p>
-                            </div>
-                            <div style="background-color: #90EE90; padding: 10px; margin-bottom: 10px;">
-                                <p style="color: white; font-weight: bold;">Build Number: ${env.BUILD_NUMBER}</p>
-                            </div>
-                            <div style="background-color: #87CEEB; padding: 10px; margin-bottom: 10px;">
-                                <p style="color: white; font-weight: bold;">URL: ${env.BUILD_URL}</p>
-                            </div>
-                        </body>
-                        </html>
-                    """,
-                    to: 'devimrans297@gmail.com',
-                    mimeType: 'text/html',
-                    attachmentsPattern: 'trivy.txt'
-            } else {
-                echo "trivy.txt not found, skipping email attachment."
+    // post {
+    //     always {
+    //         script {
+    //             // Check if 'trivy.txt' exists before sending email
+    //             if (fileExists('trivy.txt')) {
+    //                 try {
+    //                     emailext(
+    //                         attachLog: true,
+    //                         subject: "'${currentBuild.result}'",
+    //                         body: """
+    //                             <html>
+    //                             <body>
+    //                                 <div style="background-color: #FFA07A; padding: 10px; margin-bottom: 10px;">
+    //                                     <p style="color: white; font-weight: bold;">Project: ${env.JOB_NAME}</p>
+    //                                 </div>
+    //                                 <div style="background-color: #90EE90; padding: 10px; margin-bottom: 10px;">
+    //                                     <p style="color: white; font-weight: bold;">Build Number: ${env.BUILD_NUMBER}</p>
+    //                                 </div>
+    //                                 <div style="background-color: #87CEEB; padding: 10px; margin-bottom: 10px;">
+    //                                     <p style="color: white; font-weight: bold;">URL: ${env.BUILD_URL}</p>
+    //                                 </div>
+    //                             </body>
+    //                             </html>
+    //                         """,
+    //                         to: 'devimrans297@gmail.com',
+    //                         mimeType: 'text/html',
+    //                         attachmentsPattern: 'trivy.txt'
+    //                     )
+    //                 } catch (Exception e) {
+    //                     echo "Error sending email: ${e.getMessage()}"
+    //                 }
+    //             } else {
+    //                 echo "trivy.txt not found, skipping email attachment."
+    //             }
             }
         }
     }
